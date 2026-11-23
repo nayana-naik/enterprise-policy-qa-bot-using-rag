@@ -1,0 +1,30 @@
+name: rag-starter
+
+# Fresh-start stack: just n8n. The default vector store is Qdrant Cloud's
+# free cluster (https://cloud.qdrant.io) — no local database to run.
+# Ollama is expected to run on the HOST (not in this compose file) — n8n
+# reaches it via host.docker.internal.
+#
+# Want Qdrant running locally in Docker instead of the cloud free tier?
+# See docker-compose.qdrant.yml (alternate option) and the README.
+#
+# If you already have n8n running some other way (e.g. installed via
+# get-n8n.sh, or n8n Desktop), don't use this file at all — just use your
+# existing n8n and follow the README from step 2.
+
+volumes:
+  n8n-data:
+
+services:
+  n8n:
+    image: docker.io/n8nio/n8n:latest
+    container_name: rag-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_RUNNERS_ENABLED=true
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./data:/home/node/.n8n-files/rag-data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

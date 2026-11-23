@@ -1,0 +1,353 @@
+{
+  "id": "evalBatch00000001",
+  "name": "RAG 03 - Eval Batch (optional)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f3333333-0000-0000-0000-000000000000",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/home/node/.n8n-files/rag-data/knowledge_items.csv",
+        "options": {}
+      },
+      "id": "f3333333-0000-0000-0000-000000000001",
+      "name": "Read Knowledge Base CSV",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "csv",
+        "options": {}
+      },
+      "id": "f3333333-0000-0000-0000-000000000002",
+      "name": "Parse CSV Rows",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "query": "={{ $json.sample_question }}"
+      },
+      "id": "f3333333-0000-0000-0000-000000000003",
+      "name": "Question and Answer Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+      "typeVersion": 1.6,
+      "position": [
+        -180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are grading a support assistant's answer against a reference (ground truth) answer.\n\nUser question:\n{{ $('Parse CSV Rows').item.json.sample_question }}\n\nReference (ground truth) answer:\n{{ $('Parse CSV Rows').item.json.sample_ground_truth }}\n\nAssistant's generated answer:\n{{ $json.response }}\n\nScore the generated answer from 1 (wrong/unhelpful) to 5 (fully correct and complete) for factual correctness and completeness compared to the reference answer. Respond in EXACTLY this format, nothing else:\nScore: <1-5>\nReason: <one concise sentence>",
+        "hasOutputParser": false,
+        "needsFallback": false
+      },
+      "id": "f3333333-0000-0000-0000-000000000004",
+      "name": "LLM Judge",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "f3333333-0000-0000-0000-000000000005",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        220
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "rag-ollama-cred-01",
+          "name": "Ollama (local)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topK": 4
+      },
+      "id": "f3333333-0000-0000-0000-000000000006",
+      "name": "Vector Store Retriever",
+      "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "id",
+          "value": "enterprise_kb"
+        },
+        "options": {}
+      },
+      "id": "f3333333-0000-0000-0000-000000000007",
+      "name": "Knowledge Base (Qdrant)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        60,
+        420
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "rag-qdrant-cloud-01",
+          "name": "Qdrant Cloud (free tier)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "id": "f3333333-0000-0000-0000-000000000008",
+      "name": "Embeddings Ollama",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        60,
+        620
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "rag-ollama-cred-01",
+          "name": "Ollama (local)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "g1",
+              "name": "question",
+              "value": "={{ $('Parse CSV Rows').item.json.sample_question }}",
+              "type": "string"
+            },
+            {
+              "id": "g2",
+              "name": "ground_truth",
+              "value": "={{ $('Parse CSV Rows').item.json.sample_ground_truth }}",
+              "type": "string"
+            },
+            {
+              "id": "g3",
+              "name": "generated_answer",
+              "value": "={{ $('Question and Answer Chain').item.json.response }}",
+              "type": "string"
+            },
+            {
+              "id": "g4",
+              "name": "judge_verdict",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f3333333-0000-0000-0000-000000000009",
+      "name": "Build Result Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "csv",
+        "options": {}
+      },
+      "id": "f3333333-0000-0000-0000-00000000000a",
+      "name": "Convert Results to CSV",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/node/.n8n-files/rag-data/eval_results.csv",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "f3333333-0000-0000-0000-00000000000b",
+      "name": "Write Eval Results",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        700,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read Knowledge Base CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Knowledge Base CSV": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CSV Rows": {
+      "main": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Question and Answer Chain": {
+      "main": [
+        [
+          {
+            "node": "LLM Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Judge": {
+      "main": [
+        [
+          {
+            "node": "Build Result Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Result Row": {
+      "main": [
+        [
+          {
+            "node": "Convert Results to CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Results to CSV": {
+      "main": [
+        [
+          {
+            "node": "Write Eval Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "LLM Judge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Retriever": {
+      "ai_retriever": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_retriever",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Knowledge Base (Qdrant)": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Retriever",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Knowledge Base (Qdrant)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
